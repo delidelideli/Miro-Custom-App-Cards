@@ -117,3 +117,47 @@ If you're setting up a brand-new Firebase project (not needed for the existing o
 - The Miro App URL in the developer portal must be `http://localhost:3000` for local dev and the Vercel deployment URL for production
 - Everyone testing must be a member of the Miro developer team where the app is installed
 - Do not share `.env.local`, service account JSON files, or any credentials in chat or git
+
+---
+
+## For other players (testers)
+
+No setup needed. Just:
+
+1. Get added to the Miro team where the app is installed (ask Connor)
+2. Open the shared Miro board
+3. Click the app icon in the toolbar
+
+The app runs from the Vercel deployment — nothing to install or configure.
+
+---
+
+## For Connor on a new machine
+
+You already own everything, so this is much faster than the full setup above.
+
+1. **Clone and install**
+   ```bash
+   git clone https://github.com/delidelideli/Miro-Custom-App-Cards.git
+   cd Miro-Custom-App-Cards
+   npm install
+   ```
+
+2. **Copy `.env.local` from your other machine**
+   All the values are the same — just transfer the file directly (USB, AirDrop, email to yourself). Do not regenerate keys unless the old ones were compromised.
+
+3. **Link Vercel**
+   ```bash
+   vercel login
+   vercel link
+   ```
+   Choose "Link to existing project" and select **miro-game-mod**.
+
+4. **Run locally**
+   ```bash
+   npm run dev
+   ```
+
+5. **Switch the Miro App URL** if needed
+   - Local dev: set App URL to `http://localhost:3000` in the Miro developer portal
+   - Testing with others: set it back to the Vercel deployment URL
