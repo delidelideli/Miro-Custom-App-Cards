@@ -81,3 +81,25 @@ body {
   opacity: 0.85;
   margin-top: 5px;
 }
+
+/* Screens */
+.screen { max-width: 300px; }
+.screen.center { display: flex; align-items: center; justify-content: center; height: 80vh; }
+
+.subtitle { font-size: 11px; color: #888; text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 12px; }
+
+.player-list { margin-bottom: 12px; }
+.player-row { display: flex; align-items: center; gap: 6px; padding: 4px 0; font-size: 13px; border-bottom: 1px solid #e0e0e0; }
+.you-badge { font-size: 9px; background: #3498db; color: white; border-radius: 4px; padding: 1px 5px; }
+
+.muted { font-size: 12px; color: #999; }
+.error { font-size: 12px; color: #e74c3c; margin-bottom: 8px; }
+
+.actions { display: flex; flex-direction: column; gap: 8px; margin-top: 4px; }
+.btn { border: none; border-radius: 8px; padding: 10px 16px; font-size: 13px; font-weight: 600; cursor: pointer; transition: opacity 0.15s; }
+.btn:disabled { opacity: 0.45; cursor: not-allowed; }
+.btn.primary { background: #1a1a2e; color: white; }
+.btn.primary:hover:not(:disabled) { background: #2d2d5e; }
+
+.turn-banner { font-size: 13px; font-weight: 600; padding: 6px 10px; border-radius: 6px; background: #eee; color: #555; margin-bottom: 8px; }
+.turn-banner.your-turn { background: #d4edda; color: #155724; }

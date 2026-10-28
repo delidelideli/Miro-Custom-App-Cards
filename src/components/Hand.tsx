@@ -9,7 +9,7 @@ const BG: Record<string, string> = {
 
 interface HandProps {
   cards: Card[];
-  onPlay: (card: Card) => void;
+  onPlay?: (card: Card) => void;  // undefined = not your turn, cards shown greyed
 }
 
 export default function Hand({ cards, onPlay }: HandProps) {
@@ -21,9 +21,10 @@ export default function Hand({ cards, onPlay }: HandProps) {
         <button
           key={card.id}
           className="card"
-          style={{ backgroundColor: BG[card.color] }}
-          onClick={() => onPlay(card)}
-          title={`Play ${card.color} ${card.number} face-down`}
+          style={{ backgroundColor: BG[card.color], opacity: onPlay ? 1 : 0.5 }}
+          onClick={() => onPlay?.(card)}
+          disabled={!onPlay}
+          title={onPlay ? `Play ${card.color} ${card.number} face-down` : "Not your turn"}
         >
           <span className="card-number">{card.number}</span>
           <span className="card-color">{card.color}</span>
