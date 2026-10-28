@@ -4,6 +4,24 @@ import type { Card } from '../types';
 import { cardLabel } from '../types';
 import { gameConfig } from '../gameConfig';
 
+// Colors for player name tags — none overlap with card colors (red/blue/green/yellow)
+// or the bluff amber (#f39c12)
+const PLAYER_PALETTE = [
+  '#e91e63', // pink
+  '#00bcd4', // cyan
+  '#ff5722', // deep orange
+  '#9c27b0', // purple
+  '#009688', // teal
+  '#607d8b', // slate blue-grey
+  '#8d6e63', // warm brown
+  '#039be5', // sky blue
+];
+
+function pickPlayerColors(count: number): string[] {
+  const shuffled = [...PLAYER_PALETTE].sort(() => Math.random() - 0.5);
+  return shuffled.slice(0, count);
+}
+
 interface LobbyProps {
   boardId: string;
   userId: string;
@@ -73,9 +91,10 @@ export default function Lobby({ boardId, userId, userName, game }: LobbyProps) {
         data.boardLayout,
         data.playerNames,
         data.drawPileOrder ?? [],
+        playerOrder,
       );
 
-      setSetupStatus('Saving board layout…');
+      setSetupStatus('Saving layout…');
       const token = await miro.board.getIdToken();
       await fetch('/api/set-board-shapes', {
         method: 'POST',
@@ -157,16 +176,17 @@ export default function Lobby({ boardId, userId, userName, game }: LobbyProps) {
   );
 }
 
-// Returns { setupShapeIds, drawPileShapeIds } for storage in Firestore
 async function setupBoardLayout(
   layout: BoardLayout,
   playerNames: Record<string, string>,
-  drawPileOrder: Card[],      // index 0 = top card (drawn first)
+  drawPileOrder: Card[],
+  playerOrder: string[],
 ): Promise<{ setupShapeIds: string[]; drawPileShapeIds: string[] }> {
   const LABEL_OFFSET = 90;
   const setupShapeIds: string[] = [];
+  const playerColors = pickPlayerColors(playerOrder.length);
 
-  // Draw Pile label — above the card stack
+  // ── Draw Pile label ──────────────────────────────────────────────────────
   const dpLabel = await miro.board.createShape({
     content: 'Draw Pile',
     shape: 'rectangle',
@@ -178,7 +198,7 @@ async function setupBoardLayout(
   });
   setupShapeIds.push(dpLabel.id);
 
-  // Play Area label — above where honest cards land
+  // ── Play Area label ──────────────────────────────────────────────────────
   const paLabel = await miro.board.createShape({
     content: 'Play Area',
     shape: 'rectangle',
@@ -190,24 +210,52 @@ async function setupBoardLayout(
   });
   setupShapeIds.push(paLabel.id);
 
-  // Player zone labels
-  for (const [playerId, pos] of Object.entries(layout.playerZones)) {
+  // ── Play Area zone box (outline only) ────────────────────────────────────
+  const paBox = await miro.board.createShape({
+    content: '',
+    shape: 'rectangle',
+    style: { fillColor: '#ffffff', borderColor: '#bdc3c7', borderWidth: 3 },
+    x: layout.playArea.x,
+    y: layout.playArea.y,
+    width: 300,
+    height: 260,
+  });
+  setupShapeIds.push(paBox.id);
+
+  // ── Per-player zone labels + bluff zone boxes ────────────────────────────
+  for (const [i, playerId] of playerOrder.entries()) {
+    const pos = layout.playerZones[playerId];
+    if (!pos) continue;
+    const color = playerColors[i] ?? '#607d8b';
+
+    // Name tag label
     const zoneLabel = await miro.board.createShape({
       content: playerNames[playerId] ?? playerId,
       shape: 'rectangle',
-      style: { fillColor: '#4a235a', borderColor: '#7d3c98', borderWidth: 2 },
+      style: { fillColor: color, borderColor: color, borderWidth: 2 },
       x: pos.x,
       y: pos.y,
       width: 200,
       height: 50,
     });
     setupShapeIds.push(zoneLabel.id);
+
+    // Bluff zone outline box (cards land 200px above the name tag)
+    const bluffBox = await miro.board.createShape({
+      content: '',
+      shape: 'rectangle',
+      style: { fillColor: '#ffffff', borderColor: color, borderWidth: 3 },
+      x: pos.x,
+      y: pos.y - 200,
+      width: 260,
+      height: 240,
+    });
+    setupShapeIds.push(bluffBox.id);
   }
 
-  // Draw pile card shapes — perfectly stacked, bottom card created first so top card ends up on top.
-  // drawPileOrder[0] = top card, drawPileOrder[last] = bottom card.
-  // We iterate from last→0 so the top card's shape is the final one created (sits on top in Miro).
-  // drawPileShapeIds[last] = top card shape (what api/draw.ts pops).
+  // ── Draw pile card shapes ────────────────────────────────────────────────
+  // Created bottom→top so the top card's shape ends up on top in Miro.
+  // drawPileShapeIds[last] = top card (what api/draw.ts pops first).
   const drawPileShapeIds: string[] = [];
   for (let i = drawPileOrder.length - 1; i >= 0; i--) {
     const shape = await miro.board.createShape({
@@ -219,7 +267,7 @@ async function setupBoardLayout(
       width: 100,
       height: 150,
     });
-    drawPileShapeIds.unshift(shape.id); // keep in same order as drawPileOrder (index 0 = top)
+    drawPileShapeIds.unshift(shape.id);
   }
 
   return { setupShapeIds, drawPileShapeIds };
