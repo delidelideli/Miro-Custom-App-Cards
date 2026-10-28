@@ -31,9 +31,9 @@ function GameRouter({ ctx }: { ctx: MiroContext }) {
     return <Lobby boardId={ctx.boardId} userId={ctx.userId} userName={ctx.userName} game={game} />;
   }
 
-  if (game.status === 'playing') {
+  if (game.status === 'playing' || game.status === 'pendingPower' || game.status === 'finished') {
     return <GameScreen boardId={ctx.boardId} userId={ctx.userId} hand={hand} game={game} />;
   }
 
-  return <div className="screen center"><p>Game over. Play again coming in Milestone 4.</p></div>;
+  return <div className="screen center"><p>Unknown game state.</p></div>;
 }

@@ -9,9 +9,12 @@ function buildDeck(): Card[] {
   for (const color of gameConfig.colors) {
     const initial = color[0];
     for (let n = 1; n <= gameConfig.numbersPerColor; n++) {
-      for (const copy of ['a', 'b'] as const) {
-        deck.push({ id: `${initial}${n}-${copy}`, color, number: n });
-      }
+      deck.push({ id: `${initial}${n}`, kind: 'number', color, number: n });
+    }
+  }
+  for (const power of gameConfig.powerCards) {
+    for (let i = 0; i < gameConfig.copiesPerPowerCard; i++) {
+      deck.push({ id: `${power}-${i}`, kind: 'power', power });
     }
   }
   return deck;
@@ -26,6 +29,21 @@ function shuffle<T>(arr: T[]): T[] {
   return a;
 }
 
+function computeBoardLayout(players: string[]) {
+  const spacing = 360;
+  const totalWidth = players.length * spacing;
+  const startX = -(totalWidth / 2) + spacing / 2;
+  const playerZones: Record<string, { x: number; y: number }> = {};
+  players.forEach((id, i) => {
+    playerZones[id] = { x: startX + i * spacing, y: 480 };
+  });
+  return {
+    playArea: { x: 0, y: 0 },
+    drawPile: { x: 280, y: -60 },
+    playerZones,
+  };
+}
+
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'POST') return res.status(405).end();
 
@@ -33,16 +51,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (!idToken || !boardId) return res.status(400).json({ error: 'idToken and boardId required' });
 
   let payload;
-  try {
-    payload = verifyMiroToken(idToken);
-  } catch {
-    return res.status(401).json({ error: 'Invalid Miro token' });
-  }
+  try { payload = verifyMiroToken(idToken); }
+  catch { return res.status(401).json({ error: 'Invalid Miro token' }); }
 
   const gameRef = db.doc(`games/${boardId}`);
   const gameSnap = await gameRef.get();
-
-  if (!gameSnap.exists) return res.status(404).json({ error: 'Game not found — someone must join first' });
+  if (!gameSnap.exists) return res.status(404).json({ error: 'Game not found' });
 
   const game = gameSnap.data()!;
   if (game.status !== 'lobby') return res.status(409).json({ error: 'Game already started' });
@@ -53,31 +67,45 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   const deck = shuffle(buildDeck());
-  const hands: Record<string, Card[]> = {};
   let cursor = 0;
+  const hands: Record<string, Card[]> = {};
+  const handCounts: Record<string, number> = {};
 
-  for (const playerId of players) {
-    hands[playerId] = deck.slice(cursor, cursor + gameConfig.handSize);
+  for (const id of players) {
+    hands[id] = deck.slice(cursor, cursor + gameConfig.handSize);
+    handCounts[id] = gameConfig.handSize;
     cursor += gameConfig.handSize;
   }
 
-  const drawPile = deck.slice(cursor);
+  const boardLayout = computeBoardLayout(players);
+  const playedCounts: Record<string, number> = Object.fromEntries(players.map(id => [id, 0]));
 
-  // Write all hands and game state atomically.
   const batch = db.batch();
-
-  for (const [playerId, cards] of Object.entries(hands)) {
-    batch.set(db.doc(`games/${boardId}/hands/${playerId}`), { cards });
+  for (const [id, cards] of Object.entries(hands)) {
+    batch.set(db.doc(`games/${boardId}/hands/${id}`), { cards });
   }
-
-  batch.set(db.doc(`games/${boardId}/secret/deck`), { drawPile, playPile: [] });
-
+  batch.set(db.doc(`games/${boardId}/secret/deck`), {
+    drawPile: deck.slice(cursor),
+    playPile: [],
+  });
   batch.update(gameRef, {
     status: 'playing',
     currentTurn: players[0],
+    turnDirection: 1,
+    lastPlay: null,
+    pendingPower: null,
+    handCounts,
+    playedCounts,
+    boardLayout,
+    winner: null,
   });
-
   await batch.commit();
 
-  return res.status(200).json({ ok: true, currentTurn: players[0] });
+  return res.status(200).json({
+    ok: true,
+    currentTurn: players[0],
+    boardLayout,
+    playerNames: game.playerNames,
+    drawPileOrder: deck.slice(cursor), // top card is index 0
+  });
 }
