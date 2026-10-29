@@ -1,0 +1,34 @@
+Hook: Card game where you race to empty your hand by matching cards,
+except cards go face down so you can lie, bluff, and call out your friends
+Overview: Digital card game for 3 players on Miro, it mixes simple color
+and number matching and throws bluffing into the mix. The goal is to reach
+zero cards or outlast the other players. Any card can be played face down
+to trick others. Power cards also bring more chaos by letting players punish
+others, or get punished by being called out.
+Gameplay: Digital card game for 3 players using color and number
+matching cards mixed with power cards. The goal is to either get your hand
+to zero or survive the other players getting too many and losing. Players
+are able to play power cards that can offer benefits and can punish other
+players. Any card can be placed face down to attempt to trick other players,
+and calling out a player for not playing what they say will punish them
+depending on the card, and if the person who made the call is wrong, they
+will have to draw a reduced number of cards. Cards numbered 1-3 draw 2,
+4-6 Draw 4, and 7-8 Draw 6. Power cards called out will allow the person
+who correctly got it to use the power as if it were their own card. Players
+start with a hand of 6 randomly drawn cards. No Point system, just getting
+cards to zero. Any player with over 15 cards will lose and the game will
+continue until the last player stands. The deck will be shuffled when
+needed.
+Style: The game will use a simple design style similar to uno to avoid cards
+looking too complex, but not too boring either. Each card will be given a
+color and a number, and power cards will have their own designs following
+the same idea.
+MVP: The MVP will be one complete deck on Miro with the rulebook.
+32 Number Cards with 4 colors numbered 1-8, with the penalty being cards
+numbered 1-3 draw 2, 4-6 Draw 4, and 7-8 Draw 6
+16 Power Cards, 4 Card Swap, 4 Reverse, 4 Skip, and 4 Hand Swaps
+Face Down Covers for each card
+Cards will be designed and built in Miro, with Separate Face down versions
+One Page Rulebook
+Board Layout with card areas
+Planned Blind playtest from a separate group of people to test the flow

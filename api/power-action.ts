@@ -1,6 +1,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { db } from './_lib/firebaseAdmin';
 import { verifyMiroToken } from './_lib/miroAuth';
+import { nextActiveTurn, MAX_HAND_SIZE } from './_lib/gameHelpers';
 import type { Card } from '../src/types';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
@@ -39,12 +40,25 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const myCards: Card[]    = mySnap.data()?.cards ?? [];
     const theirCards: Card[] = theirSnap.data()?.cards ?? [];
 
+    // After swap: userId gets theirCards, targetPlayerId gets myCards
+    const eliminated: string[] = [...(game.eliminated ?? [])];
+    if (theirCards.length > MAX_HAND_SIZE && !eliminated.includes(userId)) eliminated.push(userId);
+    if (myCards.length > MAX_HAND_SIZE && !eliminated.includes(targetPlayerId)) eliminated.push(targetPlayerId);
+    const active = order.filter(id => !eliminated.includes(id));
+    const swapStatus = active.length <= 1 ? 'finished' : 'playing';
+    const swapWinner = active.length === 1 ? active[0] : null;
+    const swapNextTurn = swapStatus === 'finished'
+      ? (game.currentTurn as string)
+      : (nextActiveTurn(order, userId, direction, eliminated) ?? order[0]);
+
     const batch = db.batch();
     batch.update(myRef,    { cards: theirCards });
     batch.update(theirRef, { cards: myCards });
     batch.update(gameRef, {
-      status: 'playing',
-      currentTurn: nextTurn,
+      status: swapStatus,
+      winner: swapWinner,
+      eliminated,
+      currentTurn: swapNextTurn,
       pendingPower: null,
       lastPlay: null,
       [`handCounts.${userId}`]: theirCards.length,

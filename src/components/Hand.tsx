@@ -7,6 +7,13 @@ const NUMBER_BG: Record<string, string> = {
   yellow: '#c7a800',
 };
 
+const POWER_BG: Record<string, string> = {
+  'card-swap': '#e65100',  // deep orange
+  'reverse':   '#006064',  // dark teal
+  'skip':      '#6a1b9a',  // deep purple
+  'hand-swap': '#880e4f',  // dark magenta
+};
+
 const POWER_SHORT: Record<string, string> = {
   'card-swap': 'SWAP',
   reverse:     'REV',
@@ -25,7 +32,7 @@ export default function Hand({ cards, onPlay }: HandProps) {
   return (
     <div className="hand">
       {cards.map(card => {
-        const bg   = card.kind === 'number' ? NUMBER_BG[card.color] : '#6c3483';
+        const bg   = card.kind === 'number' ? NUMBER_BG[card.color] : (POWER_BG[card.power] ?? '#6a1b9a');
         const main = card.kind === 'number' ? String(card.number)   : (POWER_SHORT[card.power] ?? card.power);
         const sub  = card.kind === 'number' ? card.color            : 'POWER';
         return (

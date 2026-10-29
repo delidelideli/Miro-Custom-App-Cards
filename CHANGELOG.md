@@ -4,7 +4,55 @@ All changes pushed to GitHub are recorded here.
 
 ---
 
-## Push 1 — Milestone 1: Hello Board
+## Push 4 — Playtest Polish
+**Date:** 2026-10-28
+
+Pre-playtest update covering game rule implementation, elimination, matching rule, liar penalty overhaul, board UX improvements, and a rules reference.
+
+**Game rule changes:**
+- Starting hand increased from 5 to 6 cards
+- **Matching rule added:** each claim must match the previous card's color or number. Power cards bypass the rule and can be played on anything. When honest play doesn't match, the UI forces a bluff with a valid claim.
+- **Liar penalty overhaul:** loser no longer picks up the play pile. Instead:
+  - Caught bluffing a number card → bluffer draws 2 (1–3), 4 (4–6), or 6 (7–8) cards from the draw pile
+  - Caught bluffing a power card → caller gets to use that power
+  - Wrong call (honest play) → caller draws half the normal penalty (rounded up)
+
+**Elimination system:**
+- Any player who reaches 16+ cards is eliminated and removed from the turn order
+- If only one active player remains after an elimination, they win immediately
+- Eliminated players see a banner and are struck through in the hand-count list
+
+**Board and draw pile:**
+- Draw pile is now a single face-down "?" card instead of 48 labeled shapes — faster setup, no information leak
+- Each draw picks a random card from whatever remains in the deck
+- Draw pile shape is removed from the board only when the pile actually empties
+- Board layout improved for 3 players: player zone spacing increased (360→420), zones moved further down (y 480→580) so bluff zones no longer sit right on top of the play area
+- Draw pile label positions corrected — labels now sit above their boxes instead of inside them
+
+**UI and UX:**
+- Power cards now have distinct colors per type: SWAP=orange, REV=teal, SKIP=purple, HAND=magenta
+- Active last claim displayed to all players with a match hint for the active player
+- ClaimPicker highlights the matching color and number when there is a constraint; Confirm is disabled until the selection is valid
+- Rules button added at the bottom of the game screen — opens a full-panel overlay with rules, including a note on what isn't implemented yet
+- Reset no longer requires a page refresh — Firestore deletion now correctly routes the app back to lobby
+- Reveal banner updated to show card-draw penalty amounts instead of "picks up the pile"
+
+**Under the hood:**
+- `api/_lib/gameHelpers.ts` — shared `nextActiveTurn` and `MAX_HAND_SIZE` used by all turn-advancing handlers; eliminated players are automatically skipped in every handler
+- `api/start.ts` — initialises `eliminated: []`; removed `drawPileOrder` from response
+- All five turn-advancing handlers (`play`, `draw`, `liar`, `power-action`, `end-turn`) updated to use `nextActiveTurn`
+
+**Not yet implemented (planned):**
+- Partial liar calls (call just the color wrong or just the number wrong)
+- Deck reshuffle when the draw pile runs out
+- Custom Miro card designs
+- Play Again / New Round without rejoining
+- Score tracking across rounds
+
+---
+
+## Push 3 — Milestone 3: Full Game Loop
+**Date:** 2026-10-28
 **Date:** 2026-10-27
 
 First working version of the app. Panel shows a hardcoded hand of 5 cards and clicking a card places a face-down rectangle on the Miro board.

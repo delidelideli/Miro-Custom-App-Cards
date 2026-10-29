@@ -30,16 +30,16 @@ function shuffle<T>(arr: T[]): T[] {
 }
 
 function computeBoardLayout(players: string[]) {
-  const spacing = 360;
+  const spacing = 420;
   const totalWidth = players.length * spacing;
   const startX = -(totalWidth / 2) + spacing / 2;
   const playerZones: Record<string, { x: number; y: number }> = {};
   players.forEach((id, i) => {
-    playerZones[id] = { x: startX + i * spacing, y: 480 };
+    playerZones[id] = { x: startX + i * spacing, y: 580 };
   });
   return {
     playArea: { x: 0, y: 0 },
-    drawPile: { x: 280, y: -60 },
+    drawPile: { x: 320, y: -80 },
     playerZones,
   };
 }
@@ -98,6 +98,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     playedCounts,
     boardLayout,
     winner: null,
+    eliminated: [],
   });
   await batch.commit();
 
@@ -106,6 +107,5 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     currentTurn: players[0],
     boardLayout,
     playerNames: game.playerNames,
-    drawPileOrder: deck.slice(cursor), // top card is index 0
   });
 }

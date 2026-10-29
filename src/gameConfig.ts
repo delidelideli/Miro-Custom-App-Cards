@@ -5,7 +5,7 @@ export const gameConfig = {
   copiesPerNumberCard: 1,
   powerCards: ['card-swap', 'reverse', 'skip', 'hand-swap'] as const,
   copiesPerPowerCard: 4,     // 4 of each → 16 power cards  (48 total)
-  handSize: 5,
+  handSize: 6,
   minPlayers: 2,
   maxPlayers: 6,
   penaltyCards: 2,

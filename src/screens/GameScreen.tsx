@@ -18,15 +18,27 @@ export default function GameScreen({ boardId, userId, hand, game }: GameScreenPr
   const [pickingClaim, setPickingClaim] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  const [showRules, setShowRules] = useState(false);
   const revealedRef = useRef('');
 
   const isMyTurn = game.currentTurn === userId;
+  const isEliminated = game.eliminated.includes(userId);
   const currentName = game.playerNames[game.currentTurn ?? ''] ?? game.currentTurn;
   const isPendingMyPower = game.status === 'pendingPower' && game.pendingPower?.playerId === userId;
   const isPendingOtherPower = game.status === 'pendingPower' && game.pendingPower?.playerId !== userId;
 
   const lp = game.lastPlay;
   const canCallLiar = !!lp && !lp.revealed && lp.playerId !== userId;
+
+  // Active previous claim (cleared after a reveal or at game start)
+  const prevClaim = (lp && !lp.revealed) ? lp.claim : null;
+
+  // Whether this card's honest claim matches the previous claim
+  function honestMatchesPrev(card: Card): boolean {
+    if (!prevClaim || prevClaim.kind !== 'number') return true;
+    if (card.kind === 'power') return true;
+    return card.color === prevClaim.color || card.number === prevClaim.number;
+  }
 
   // When liar is called and the card is revealed, update the board shape
   useEffect(() => {
@@ -131,7 +143,13 @@ export default function GameScreen({ boardId, userId, hand, game }: GameScreenPr
     setBusy(true);
     setError('');
     try {
-      await callApi('/api/liar', {});
+      const data = await callApi('/api/liar', {});
+      if (data.removedShapeId) {
+        try {
+          const shape = await miro.board.getById(data.removedShapeId);
+          if (shape) await miro.board.remove(shape as any);
+        } catch (_) {}
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
     } finally {
@@ -214,18 +232,31 @@ export default function GameScreen({ boardId, userId, hand, game }: GameScreenPr
         {isPendingOtherPower && <span className="power-resolving"> (resolving power…)</span>}
       </div>
 
+      {/* Active claim — visible to all players so they know what must be matched */}
+      {prevClaim && !lp?.revealed && (
+        <div className="last-claim">
+          Last claim: <strong>{claimLabel(prevClaim)}</strong>
+          {prevClaim.kind === 'number' && isMyTurn && (
+            <span className="match-req"> · must match {prevClaim.color} or {prevClaim.number}</span>
+          )}
+        </div>
+      )}
+
       {error && <p className="error">{error}</p>}
 
       {/* Liar reveal result */}
       {lp?.revealed && lp.realCard && (
         <div className={`reveal-banner${lp.loser === userId ? ' loser' : ' safe'}`}>
           {lp.loser === lp.playerId
-            ? `${game.playerNames[lp.playerId] ?? lp.playerId} was bluffing!`
-            : 'Honest play — caller picks up the pile.'
+            ? lp.powerGranted
+              ? `${game.playerNames[lp.playerId] ?? lp.playerId} was bluffing — caller uses the power!`
+              : `${game.playerNames[lp.playerId] ?? lp.playerId} was bluffing!`
+            : 'Honest play — wrong call!'
           }
           {lp.loser === userId && ' (that was you)'}
           <div className="reveal-details">
             Claimed: {claimLabel(lp.claim)} → Real: {cardLabel(lp.realCard)}
+            {(lp.penaltyCount ?? 0) > 0 && ` · Drew ${lp.penaltyCount} cards`}
           </div>
         </div>
       )}
@@ -245,31 +276,44 @@ export default function GameScreen({ boardId, userId, hand, game }: GameScreenPr
         />
       )}
 
+      {/* Eliminated banner */}
+      {isEliminated && (
+        <div className="reveal-banner loser">
+          You've been eliminated! ({game.handCounts[userId] ?? 0} cards)
+          <div className="reveal-details">Too many cards — watching the rest of the game.</div>
+        </div>
+      )}
+
       {/* Step 1: honest or bluff chooser */}
-      {!isPendingMyPower && selectedCard && !pickingClaim && (
+      {!isPendingMyPower && !isEliminated && selectedCard && !pickingClaim && (
         <div className="play-chooser">
           <p className="pc-label">Playing: <strong>{cardLabel(selectedCard)}</strong></p>
-          <button className="btn primary" onClick={() => handleConfirmClaim(cardToClaim(selectedCard))} disabled={busy}>
-            Play as {cardLabel(selectedCard)}
-          </button>
+          {honestMatchesPrev(selectedCard) ? (
+            <button className="btn primary" onClick={() => handleConfirmClaim(cardToClaim(selectedCard))} disabled={busy}>
+              Play as {cardLabel(selectedCard)}
+            </button>
+          ) : (
+            <p className="muted pc-no-honest">Honest play doesn't match — you must bluff.</p>
+          )}
           <button className="btn secondary" onClick={() => setPickingClaim(true)} disabled={busy}>
-            Bluff — claim something else
+            {honestMatchesPrev(selectedCard) ? 'Bluff — claim something else' : 'Choose a claim'}
           </button>
           <button className="btn ghost btn-sm" onClick={() => setSelectedCard(null)}>Cancel</button>
         </div>
       )}
 
       {/* Step 2: claim picker (bluff mode only) */}
-      {!isPendingMyPower && selectedCard && pickingClaim && (
+      {!isPendingMyPower && !isEliminated && selectedCard && pickingClaim && (
         <ClaimPicker
           card={selectedCard}
+          prevClaim={prevClaim}
           onConfirm={handleConfirmClaim}
           onCancel={() => setPickingClaim(false)}
         />
       )}
 
       {/* Hand */}
-      {!isPendingMyPower && !selectedCard && (
+      {!isPendingMyPower && !isEliminated && !selectedCard && (
         <>
           <Hand
             cards={hand}
@@ -280,39 +324,80 @@ export default function GameScreen({ boardId, userId, hand, game }: GameScreenPr
       )}
 
       {/* Action buttons */}
-      <div className="actions">
-        {isMyTurn && game.status === 'playing' && (
-          <button className="btn secondary" onClick={handleDraw} disabled={busy}>
-            Draw Card
-          </button>
-        )}
-        {canCallLiar && (
-          <button className="btn danger" onClick={handleCallLiar} disabled={busy}>
-            Call Liar!
-          </button>
-        )}
-        {isMyTurn && !isPendingMyPower && (
-          <button className="btn ghost" onClick={handleEndTurn} disabled={busy}>
-            End Turn
-          </button>
-        )}
-      </div>
+      {!isEliminated && (
+        <div className="actions">
+          {isMyTurn && game.status === 'playing' && (
+            <button className="btn secondary" onClick={handleDraw} disabled={busy}>
+              Draw Card
+            </button>
+          )}
+          {canCallLiar && (
+            <button className="btn danger" onClick={handleCallLiar} disabled={busy}>
+              Call Liar!
+            </button>
+          )}
+          {isMyTurn && !isPendingMyPower && (
+            <button className="btn ghost" onClick={handleEndTurn} disabled={busy}>
+              End Turn
+            </button>
+          )}
+        </div>
+      )}
 
       {/* Hand counts for all players */}
       <div className="hand-counts">
-        {game.playerOrder.map(id => (
-          <div key={id} className={`hc-row${id === userId ? ' me' : ''}`}>
-            <span>{game.playerNames[id] ?? id}</span>
-            <span>{game.handCounts[id] ?? 0} cards</span>
-          </div>
-        ))}
+        {game.playerOrder.map(id => {
+          const out = game.eliminated.includes(id);
+          return (
+            <div key={id} className={`hc-row${id === userId ? ' me' : ''}${out ? ' eliminated' : ''}`}>
+              <span>{game.playerNames[id] ?? id}{out && ' (out)'}</span>
+              <span>{out ? '—' : `${game.handCounts[id] ?? 0} cards`}</span>
+            </div>
+          );
+        })}
       </div>
 
       <div className="reset-row">
         <button className="btn ghost btn-sm" onClick={handleReset} disabled={busy}>
           Reset Game
         </button>
+        <button className="btn ghost btn-sm" onClick={() => setShowRules(true)}>
+          Rules
+        </button>
       </div>
+
+      {showRules && (
+        <div className="rules-overlay">
+          <div className="rules-header">
+            <strong>Match It or Fake It — Rules</strong>
+            <button className="btn ghost btn-sm" onClick={() => setShowRules(false)}>Close</button>
+          </div>
+          <div className="rules-body">
+            <p><strong>Goal:</strong> Empty your hand to win. Reach 16+ cards and you're eliminated. Last player standing also wins.</p>
+
+            <p><strong>On your turn:</strong> Play a card face-down and claim what it is — you can lie or tell the truth. Or draw a card instead to end your turn.</p>
+
+            <p><strong>Matching rule:</strong> Your claim must match the previous card's color or number. Power cards can be played on anything — they bypass the matching rule.</p>
+
+            <p><strong>Calling Liar:</strong> Any other player can call liar before the next turn.</p>
+            <ul>
+              <li><strong>Caught bluffing (number card):</strong> bluffer draws based on the number — 1–3 draws 2, 4–6 draws 4, 7–8 draws 6.</li>
+              <li><strong>Caught bluffing (power card):</strong> caller gets to use that power.</li>
+              <li><strong>Wrong call (they were honest):</strong> caller draws half the penalty, rounded up.</li>
+            </ul>
+
+            <p><strong>Power Cards:</strong></p>
+            <ul>
+              <li><strong>SWAP</strong> (orange): Take a card blind from a player, then give one back.</li>
+              <li><strong>REV</strong> (teal): Reverse the turn order.</li>
+              <li><strong>SKIP</strong> (purple): Skip the next player's turn.</li>
+              <li><strong>HAND</strong> (magenta): Swap your entire hand with another player.</li>
+            </ul>
+
+            <p><strong>Not in yet:</strong> partial liar calls (call just the color or number wrong), deck reshuffle when the draw pile runs out.</p>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

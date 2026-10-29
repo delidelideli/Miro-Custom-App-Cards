@@ -2,13 +2,8 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { db } from './_lib/firebaseAdmin';
 import { FieldValue } from 'firebase-admin/firestore';
 import { verifyMiroToken } from './_lib/miroAuth';
+import { nextActiveTurn } from './_lib/gameHelpers';
 import type { Card, Claim } from '../src/types';
-
-function nextPlayerIndex(order: string[], current: string, direction: number, skip = false): number {
-  const idx = order.indexOf(current);
-  const step = skip ? 2 : 1;
-  return ((idx + direction * step) % order.length + order.length) % order.length;
-}
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'POST') return res.status(405).end();
@@ -45,7 +40,22 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const deckData = deckSnap.data()!;
   const newPlayPile = [...(deckData.playPile ?? []), realCard];
 
+  // Matching rule: number claims must match the previous number claim by color or number.
+  // Power claims always bypass matching. After a reveal there is no active previous claim.
+  const prevClaim = (game.lastPlay && !game.lastPlay.revealed)
+    ? (game.lastPlay.claim as Claim)
+    : null;
+  const c = claim as Claim;
+  if (prevClaim?.kind === 'number' && c.kind === 'number') {
+    if (c.color !== prevClaim.color && c.number !== prevClaim.number) {
+      return res.status(400).json({
+        error: `Claim must match the previous card — same color (${prevClaim.color}) or same number (${prevClaim.number})`,
+      });
+    }
+  }
+
   const order: string[] = game.playerOrder;
+  const eliminated: string[] = game.eliminated ?? [];
   let direction: number = game.turnDirection ?? 1;
   let skip = false;
   let pendingPower: object | null = null;
@@ -65,7 +75,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   const nextTurn = pendingPower
     ? game.currentTurn
-    : order[nextPlayerIndex(order, userId, direction, skip)];
+    : (nextActiveTurn(order, userId, direction, eliminated, skip) ?? userId);
 
   const isWinner = newHand.length === 0 && !pendingPower;
 

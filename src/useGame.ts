@@ -17,6 +17,8 @@ export interface LastPlay {
   revealed: boolean;
   realCard?: Card;
   loser?: string;
+  penaltyCount?: number;
+  powerGranted?: boolean;
 }
 
 export interface PendingPower {
@@ -36,6 +38,7 @@ export interface GameState {
   playedCounts: Record<string, number>;
   boardLayout: BoardLayout | null;
   winner: string | null;
+  eliminated: string[];
 }
 
 export function useGameState(boardId: string): GameState | null {
@@ -43,7 +46,7 @@ export function useGameState(boardId: string): GameState | null {
   useEffect(() => {
     const ref = doc(firestore, `games/${boardId}`);
     return onSnapshot(ref, snap => {
-      if (!snap.exists()) return;
+      if (!snap.exists()) { setState(null); return; }
       const d = snap.data();
       setState({
         status:       d.status       ?? 'lobby',
@@ -57,6 +60,7 @@ export function useGameState(boardId: string): GameState | null {
         playedCounts: d.playedCounts ?? {},
         boardLayout:  d.boardLayout  ?? null,
         winner:       d.winner       ?? null,
+        eliminated:   d.eliminated   ?? [],
       });
     });
   }, [boardId]);

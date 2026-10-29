@@ -1,6 +1,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { db } from './_lib/firebaseAdmin';
 import { verifyMiroToken } from './_lib/miroAuth';
+import { nextActiveTurn } from './_lib/gameHelpers';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'POST') return res.status(405).end();
@@ -22,8 +23,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   const order: string[] = game.playerOrder;
   const direction: number = game.turnDirection ?? 1;
-  const idx = order.indexOf(userId);
-  const nextTurn = order[((idx + direction) % order.length + order.length) % order.length];
+  const eliminated: string[] = game.eliminated ?? [];
+  const nextTurn = nextActiveTurn(order, userId, direction, eliminated) ?? userId;
 
   await gameRef.update({ currentTurn: nextTurn, lastPlay: null });
 
